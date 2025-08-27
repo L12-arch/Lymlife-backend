@@ -3,6 +3,7 @@ const bodyParser = require("body-parser");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 const port = 8000;
@@ -19,11 +20,18 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 mongoose
-  .connect(
-    "mongodb+srv://lakshayarora403:S0REWNkD5l5GkSua@cluster0.yh3wsug.mongodb.net/?retryWrites=true&w=majority"
-  )
-  .then(() => console.log("connected"))
-  .catch((error) => console.log(error));
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("✅ MongoDB connected successfully");
+    console.log(`📊 Database: ${mongoose.connection.db.databaseName}`);
+  })
+  .catch((error) => {
+    console.error("❌ MongoDB connection failed:");
+    console.error("Error:", error.message);
+    console.log("💡 Please check your MONGODB_URI in the .env file");
+    console.log("💡 Make sure MongoDB is running and accessible");
+    process.exit(1); // Exit the process if DB connection fails
+  });
 
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
@@ -43,5 +51,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Sandbox listening on port ${port}`);
+  console.log(`listening on port ${port}`);
 });

@@ -1,12 +1,14 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const authController = require('../controllers/authController.js');
+const authController = require("../controllers/authController.js");
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post("/register", authController.register);
+router.post("/login", authController.login);
 router.post("/logout", authController.logout);
-router.post('/forgetpassword', authController.forgetPwd);
+router.post("/forgetpassword", authController.forgetPwd);
 router.post("/resetpassword", authController.resetPassword);
+router.post("/validate-reset-token", authController.validateResetToken);
+router.post("/reset-password-token", authController.resetPasswordWithToken);
 router.get("/:email", authController.getUser);
 router.post("/updateuser", authController.updateUser);
 
