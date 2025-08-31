@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema({
   phoneNumber: Number,
   resetToken: String,
   resetTokenExpiration: Date,
+  otp: String,
+  otpExpiration: Number,
 });
 
 module.exports = mongoose.model("User", userSchema);

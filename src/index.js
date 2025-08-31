@@ -1,9 +1,10 @@
+// Load environment variables first
+require("dotenv").config();
+
 const express = require("express");
 const bodyParser = require("body-parser");
-const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const cors = require("cors");
-require("dotenv").config();
 
 const app = express();
 const port = 8000;
@@ -19,6 +20,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// MongoDB connection with better error handling
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => {
@@ -51,5 +53,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`listening on port ${port}`);
+  console.log(`Sandbox listening on port ${port}`);
 });
