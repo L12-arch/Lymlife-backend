@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        video {
+            width: 100%;
+            max-width: 600px;
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+            background: #fee;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            background: #efe;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 Video Streaming Test Page</h1>
+
+    <div class="test-section">
+        <h3>🔍 Video Information Test</h3>
+        <p>Test the video endpoints to see what content-type and other headers are returned.</p>
+        <input type="text" id="fileId" placeholder="Enter Google Drive file ID" value="10sbUXO_24FBnfGOoTwzMvMmcmN1y2jy1">
+        <button onclick="testVideoInfo()">Test Video Info</button>
+        <div id="videoInfoResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎬 Direct Video Test</h3>
+        <p>Test playing the video directly in different formats.</p>
+        <input type="text" id="testFileId" placeholder="Enter Google Drive file ID" value="10sbUXO_24FBnfGOoTwzMvMmcmN1y2jy1">
+        <button onclick="testDirectVideo()">Test Direct Video</button>
+        <button onclick="testProxyVideo()">Test Proxy Video</button>
+        <button onclick="testStreamVideo()">Test Stream Video</button>
+        <div id="directVideoResult"></div>
+        <video id="testVideo" controls>
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Test Results Log</h3>
+        <div id="testLog" style="background: #f5f5f5; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        async function testVideoInfo() {
+            const fileId = document.getElementById('fileId').value;
+            const resultDiv = document.getElementById('videoInfoResult');
+            resultDiv.innerHTML = 'Testing...';
+
+            try {
+                const response = await fetch(`http://localhost:8000/api/test-video/${fileId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Test successful!</strong><br>
+                            File ID: ${data.fileId}<br>
+                            Content-Type: ${data.contentType}<br>
+                            Content-Length: ${data.contentLength}<br>
+                            Status: ${data.status}<br>
+                            <details>
+                                <summary>All Headers</summary>
+                                <pre>${JSON.stringify(data.headers, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                    log(`✅ Video info test successful: ${data.contentType}`);
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Test failed!</strong><br>
+                            Error: ${data.error}<br>
+                            Status: ${data.status}<br>
+                            Details: ${JSON.stringify(data.details)}
+                        </div>
+                    `;
+                    log(`❌ Video info test failed: ${data.error}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Network error!</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+                log(`❌ Video info test error: ${error.message}`);
+            }
+        }
+
+        function testDirectVideo() {
+            const fileId = document.getElementById('testFileId').value;
+            const video = document.getElementById('testVideo');
+            const resultDiv = document.getElementById('directVideoResult');
+
+            const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+            log(`🎬 Testing direct video: ${directUrl}`);
+            resultDiv.innerHTML = `<div class="success">Loading direct video...</div>`;
+            video.src = directUrl;
+        }
+
+        function testProxyVideo() {
+            const fileId = document.getElementById('testFileId').value;
+            const video = document.getElementById('testVideo');
+            const resultDiv = document.getElementById('directVideoResult');
+
+            const proxyUrl = `http://localhost:8000/api/video/${fileId}`;
+            log(`🔗 Testing proxy video: ${proxyUrl}`);
+            resultDiv.innerHTML = `<div class="success">Loading proxy video...</div>`;
+            video.src = proxyUrl;
+        }
+
+        function testStreamVideo() {
+            const fileId = document.getElementById('testFileId').value;
+            const video = document.getElementById('testVideo');
+            const resultDiv = document.getElementById('directVideoResult');
+
+            const streamUrl = `http://localhost:8000/api/stream/${fileId}`;
+            log(`📺 Testing stream video: ${streamUrl}`);
+            resultDiv.innerHTML = `<div class="success">Loading stream video...</div>`;
+            video.src = streamUrl;
+        }
+
+        // Handle video events
+        document.getElementById('testVideo').addEventListener('loadstart', () => {
+            log('⏳ Video loading started');
+        });
+
+        document.getElementById('testVideo').addEventListener('canplay', () => {
+            log('✅ Video can play');
+        });
+
+        document.getElementById('testVideo').addEventListener('error', (e) => {
+            const video = e.target;
+            log(`❌ Video error: ${video.error?.message || 'Unknown error'}`);
+            log(`❌ Error code: ${video.error?.code || 'Unknown'}`);
+
+            document.getElementById('directVideoResult').innerHTML = `
+                <div class="error">
+                    <strong>❌ Video failed to load!</strong><br>
+                    Error: ${video.error?.message || 'Unknown error'}<br>
+                    Code: ${video.error?.code || 'Unknown'}
+                </div>
+            `;
+        });
+
+        document.getElementById('testVideo').addEventListener('loadeddata', () => {
+            log('📊 Video data loaded successfully');
+            document.getElementById('directVideoResult').innerHTML = `
+                <div class="success">
+                    <strong>✅ Video loaded successfully!</strong><br>
+                    Duration: ${document.getElementById('testVideo').duration} seconds<br>
+                    Video is ready to play.
+                </div>
+            `;
+        });
+
+        // Initial log
+        log('🚀 Video test page loaded. Ready for testing!');
+    </script>
+</body>
+</html>

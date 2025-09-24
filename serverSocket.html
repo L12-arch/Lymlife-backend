@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>TV Receiver</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      #status {
+        font-size: 18px;
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      #logs {
+        height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+        background: #f5f5f5;
+      }
+      video {
+        width: 640px;
+        max-width: 640px;
+        margin: 20px 0;
+        height: 360px;
+        max-height: 360px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📺 TV Receiver</h1>
+    <div id="status">Connecting...</div>
+    <button id="enableAudioBtn" onclick="enableAudio()">🔊 Enable Audio</button>
+    <video id="player" width="640" height="360" controls autoplay muted></video>
+    <div id="logs"></div>
+
+    <script>
+      const socket = io("http://172.20.10.7:8000");
+      const statusDiv = document.getElementById("status");
+      const logsDiv = document.getElementById("logs");
+      const player = document.getElementById("player");
+      const enableAudioBtn = document.getElementById("enableAudioBtn");
+
+      function log(message) {
+        console.log(message);
+        if (logsDiv) {
+          logsDiv.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+          logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+      }
+
+      function enableAudio() {
+        player.muted = false;
+        enableAudioBtn.style.display = "none";
+        log("🔊 Audio enabled - videos can now play with sound");
+      }
+
+      socket.on("connect", () => {
+        log("✅ Connected to server");
+        statusDiv.textContent = "Connected - Registering as TV...";
+        statusDiv.style.color = "green";
+
+        // Register as TV device
+        socket.emit("register", {
+          type: "tv",
+          id: "tv-001",
+          name: "Main TV",
+        });
+      });
+
+      socket.on("registered", (data) => {
+        log(`✅ ${data.message}`);
+        statusDiv.textContent = `Registered as ${data.type}: ${data.id}`;
+      });
+
+      socket.on("playOnTV", (data) => {
+        log(`🎬 Play request: ${data.title}`);
+        log(`📺 Video URL: ${data.url}`);
+        log(`📺 Original URL: ${data.originalUrl || 'N/A'}`);
+        log(`📺 File ID: ${data.fileId || 'N/A'}`);
+        statusDiv.textContent = "Loading video...";
+
+        // Use proxy URL if available, otherwise use original URL
+        let videoUrl = data.url;
+        let fileId = data.fileId;
+
+        // If no fileId provided, try to extract from URL
+        if (!fileId && data.url) {
+          const fileIdMatch = data.url.match(/id=([^&]+)/);
+          if (fileIdMatch) {
+            fileId = fileIdMatch[1];
+          }
+        }
+
+        // Try proxy URL first if we have a fileId
+        if (fileId) {
+          videoUrl = `http://localhost:8000/api/video/${fileId}`;
+          log(`🔗 Using proxy URL: ${videoUrl}`);
+        }
+
+        // Set video source and load
+        player.src = videoUrl;
+        player.load();
+
+        // Handle video loading events
+        player.addEventListener('loadstart', () => {
+          log("⏳ Video loading started");
+        });
+
+        player.addEventListener('canplay', () => {
+          log("✅ Video can play");
+        });
+
+        player.addEventListener('error', (error) => {
+          log(`❌ Video error: ${player.error?.message || 'Unknown error'}`);
+          log(`❌ Error code: ${player.error?.code || 'Unknown'}`);
+          statusDiv.textContent = "Error loading video";
+          statusDiv.style.color = "red";
+
+          // Try fallback options
+          tryFallbackVideo(data, fileId);
+        });
+
+        // Try to play the video
+        const playPromise = player.play();
+
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              log("✅ Video started playing successfully");
+              statusDiv.textContent =
+                "Playing: " + (data.title || "Unknown Video");
+              statusDiv.style.color = "green";
+            })
+            .catch((error) => {
+              log(`⚠️ Play error: ${error.message}`);
+              statusDiv.textContent = "Error playing video";
+              statusDiv.style.color = "red";
+
+              // Try fallback options
+              tryFallbackVideo(data, fileId);
+            });
+        }
+      });
+
+      function tryFallbackVideo(data, fileId) {
+        // Try alternative proxy endpoint
+        if (fileId) {
+          const altUrl = `http://localhost:8000/api/stream/${fileId}`;
+          log(`🔄 Trying alternative proxy: ${altUrl}`);
+          player.src = altUrl;
+          player.load();
+          player.play().catch((err) => {
+            log(`❌ Alternative proxy failed: ${err.message}`);
+
+            // Try original URL as last resort
+            if (data.originalUrl) {
+              log(`🔄 Trying original URL: ${data.originalUrl}`);
+              player.src = data.originalUrl;
+              player.load();
+              player.play().catch((finalErr) => {
+                log(`❌ All attempts failed: ${finalErr.message}`);
+                statusDiv.textContent = "Failed to load video from any source";
+              });
+            }
+          });
+        } else if (data.originalUrl) {
+          // No fileId, try original URL directly
+          log(`🔄 Trying original URL: ${data.originalUrl}`);
+          player.src = data.originalUrl;
+          player.load();
+          player.play().catch((err) => {
+            log(`❌ Original URL also failed: ${err.message}`);
+            statusDiv.textContent = "Failed to load video";
+          });
+        }
+      }
+
+      socket.on("pauseOnTV", () => {
+        log("⏸️ Pause request");
+        player.pause();
+        statusDiv.textContent = "Paused";
+      });
+
+      socket.on("stopOnTV", () => {
+        log("⏹️ Stop request");
+        player.pause();
+        player.currentTime = 0;
+        statusDiv.textContent = "Stopped";
+      });
+
+      socket.on("disconnect", () => {
+        log("❌ Disconnected from server");
+        statusDiv.textContent = "Disconnected";
+        statusDiv.style.color = "red";
+      });
+
+      socket.on("error", (error) => {
+        log(`❌ Socket error: ${error.message}`);
+        statusDiv.textContent = "Connection Error";
+        statusDiv.style.color = "red";
+      });
+    </script>
+  </body>
+</html>
